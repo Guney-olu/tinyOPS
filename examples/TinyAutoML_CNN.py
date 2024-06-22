@@ -8,6 +8,7 @@ from tinygrad.helpers import getenv, colored
 from tqdm import trange
 import argparse
 import sys
+sys.path.insert(0, '') #add path
 from DataLoader import load_custom_data
 
 

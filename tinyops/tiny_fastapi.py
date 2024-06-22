@@ -1,3 +1,4 @@
+# TODO ->  Fix the api chat and add cmd run
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,7 +8,7 @@ import random
 import time
 import torch
 from tinygrad import Tensor, dtypes, nn, Context, Device, GlobalCounters
-from decode import tokenizer, prefill, device, TEMPERATURE, TOP_K, TOP_P, ALPHA_F, ALPHA_P,encode_role,encode_message
+from tinyops.tiny_llmops import tokenizer, prefill, device, TEMPERATURE, TOP_K, TOP_P, ALPHA_F, ALPHA_P,encode_role,encode_message
 
 
 model = "models/llama-1b-hf-32768-fpf"

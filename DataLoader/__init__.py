@@ -1,1 +1,1 @@
-from .Imagenetdataloader import load_custom_data
+from DataLoader.Imagenetdataloader import load_custom_data
