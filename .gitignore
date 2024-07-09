@@ -2,8 +2,7 @@ __pycache__
 venv
 tests
 dataset
-models
 llama.cpp
 *.pyc
 *.txt
-
+run.py

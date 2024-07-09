@@ -8,10 +8,10 @@ import random
 import time
 import torch
 from tinygrad import Tensor, dtypes, nn, Context, Device, GlobalCounters
-from tinyops.tiny_llmops import tokenizer, prefill, device, TEMPERATURE, TOP_K, TOP_P, ALPHA_F, ALPHA_P,encode_role,encode_message
+from tests.tinyllm import tokenizer, prefill, device, TEMPERATURE, TOP_K, TOP_P, ALPHA_F, ALPHA_P,encode_role,encode_message
 
 
-model = "models/llama-1b-hf-32768-fpf"
+model = "models/llama-1b-hf-32768-fpf"  # Add model here
 last_seen_toks = []
 
 app = FastAPI()
