@@ -51,11 +51,11 @@ class TikToken:
 MODEL_PARAMS = {
   "1": {
     "7B": {
-      "args": {"dim": 4096, "n_heads": 32, "n_layers": 32, "norm_eps": 1e-06, "vocab_size": 32000, "hidden_dim": 11008},
+      "args": {"dim": 4096, "n_heads": 32, "n_kv_heads": 32,"n_layers": 32, "norm_eps": 1e-05, "vocab_size": 32000, "hidden_dim": 11008},
       "files": 1,
     },
     "13B": {
-      "args": {"dim": 5120, "n_heads": 40, "n_layers": 40, "norm_eps": 1e-06, "vocab_size": 32000, "hidden_dim": 13824},
+      "args": {"dim": 5120, "n_heads": 40, "n_kv_heads": 40,"n_layers": 40, "norm_eps": 1e-06, "vocab_size": 32000, "hidden_dim": 13824},
       "files": 2,
     },
     "30B": {
@@ -70,11 +70,11 @@ MODEL_PARAMS = {
   },
   "2": {
     "7B": {
-      "args": {"dim": 4096, "n_heads": 32, "n_layers": 32, "norm_eps": 1e-05, "vocab_size": 32000, "hidden_dim": 11008},
+      "args": {"dim": 4096, "n_heads": 32,"n_kv_heads": 32,"n_layers": 32, "norm_eps": 1e-05, "vocab_size": 32000, "hidden_dim": 11008},
       "files": 1,
     },
     "13B": {
-      "args": {"dim": 5120, "n_heads": 40, "n_layers": 40, "norm_eps": 1e-05, "vocab_size": 32000, "hidden_dim": 13824},
+      "args": {"dim": 5120, "n_heads": 40,"n_kv_heads": 40, "n_layers": 40, "norm_eps": 1e-05, "vocab_size": 32000, "hidden_dim": 13824},
       "files": 2,
     },
     "70B": {
@@ -101,56 +101,5 @@ MODEL_PARAMS = {
       "files": 8,
     },
     "tokenizer": TikToken,
-  },
-  "code": {
-    "7B": {
-      "args": {"dim": 4096, "n_layers": 32, "n_heads": 32, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32016, "hidden_dim": 11008},
-      "files": 1,
-    },
-    "7B-Python": {
-      "args": {"dim": 4096, "n_layers": 32, "n_heads": 32, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32000, "hidden_dim": 11008},
-      "files": 1,
-    },
-    "7B-Instruct": {
-      "args": {"dim": 4096, "n_layers": 32, "n_heads": 32, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32016, "hidden_dim": 11008},
-      "files": 1,
-    },
-    "13B": {
-      "args": {"dim": 5120, "n_layers": 40, "n_heads": 40, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32016, "hidden_dim": 13824},
-      "files": 2,
-    },
-    "13B-Python": {
-      "args": {"dim": 5120, "n_layers": 40, "n_heads": 40, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32000, "hidden_dim": 13824},
-      "files": 2,
-    },
-    "13B-Instruct": {
-      "args": {"dim": 5120, "n_layers": 40, "n_heads": 40, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32016, "hidden_dim": 13824},
-      "files": 2,
-    },
-    "34B": {
-      "args": {"dim": 8192, "n_layers": 48, "n_heads": 64, "n_kv_heads": 8, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32000, "hidden_dim": 22016},
-      "files": 4,
-    },
-    "34B-Python": {
-      "args": {"dim": 8192, "n_layers": 48, "n_heads": 64, "n_kv_heads": 8, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32000, "hidden_dim": 22016},
-      "files": 4,
-    },
-    "34B-Instruct": {
-      "args": {"dim": 8192, "n_layers": 48, "n_heads": 64, "n_kv_heads": 8, "norm_eps": 1e-05, "rope_theta": 1000000, "vocab_size": 32000, "hidden_dim": 22016},
-      "files": 4,
-    },
-    "tokenizer": SentencePieceProcessor,
-  },
-  #"n_kv_heads": 4
-#   "tiny": {
-#     "1B": {
-#       "args": {"dim": 4096, "n_layers": 32, "n_heads": 32, "norm_eps": 1e-06, "vocab_size": 32000, "hidden_dim": 11008},
-#       "files": 1,
-#     },
-#     "1B-Chat": {
-#       "args": {"dim": 2048, "n_layers": 22, "n_heads": 32, "n_kv_heads": 4, "norm_eps": 1e-05, "vocab_size": 32003, "hidden_dim": 5632},
-#       "files": 1,
-#     },
-#     "tokenizer": SentencePieceProcessor,
-#   }
+  }
 }

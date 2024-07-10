@@ -41,7 +41,7 @@ class LLaMa:
             weights = load(str(model_path))
         
         if "model.embed_tokens.weight" in weights:
-            weights = convert_from_huggingface(weights, model, 32, 4) #TODO no hardcoding
+            weights = convert_from_huggingface(weights, model, params["args"]["n_heads"], params["args"]["n_kv_heads"]) #TODO no hardcoding
         
         weights = fix_bf16(weights)
 
@@ -69,24 +69,7 @@ class LLaMa:
     def __init__(self, model, tokenizer):
         self.model = model
         self.tokenizer = tokenizer
-    
-    # def greedy_until(self, prompt: str, until, max_length, temperature):
-    #     toks = [self.tokenizer.bos_id()] + self.tokenizer.encode(prompt)
-    #     start_pos = 0
-    #     for i in range(max_length):
-    #         probs = self.model(Tensor([toks[start_pos:]]), start_pos, temperature).realize()
-    #         probs_np = probs.numpy()
-    #         tok = int(np.random.choice(len(probs_np), p=probs_np))
-    #         start_pos = len(toks)
-    #         toks.append(tok)
 
-    #         if tok == self.tokenizer.eos_id(): 
-    #             break
-    #         output = self.tokenizer.decode(toks)
-    #         for s in until:
-    #             if output.endswith(s): 
-    #                 return output[0:-len(s)]
-    #     return output
     def greedy_until(self, prompt: str, until, max_length, temperature):
         toks = [self.tokenizer.bos_id()] + self.tokenizer.encode(prompt)
         start_pos = 0
@@ -102,7 +85,6 @@ class LLaMa:
             tok = int(np.random.choice(len(probs_np), p=probs_np))
             start_pos = len(toks)
             toks.append(tok)
-
             if tok == self.tokenizer.eos_id(): 
                 break
             output = self.tokenizer.decode(toks)
