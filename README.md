@@ -23,7 +23,7 @@ device = tuple(f"{Device.DEFAULT}:{i}" for i in range(shard)) if shard > 1 else 
 
 #Tinyops ->  gen = [1,2,3] size = [7B,13B,70B] , quant = [nf4,int8]
 llama = LLaMa.build(model_path, tokenizer_path, model_gen="1", model_size="7B", quantize="nf4", device=device)
-output = llama.greedy_until(prompt="I am batman", until=["\n"], max_length=10, temperature=0.3)
+output = LLaMa.generate(llama,5,"I am batman",0.7,device)
 print(output)
 ```
 

@@ -2,16 +2,20 @@ from pathlib import Path
 from typing import List
 import json
 import numpy as np
-from tinygrad import Context, Tensor, nn
-from tinygrad.nn.state import load_state_dict
+from tinygrad import Context, Tensor, nn,GlobalCounters
+from tinygrad.nn.state import load_state_dict,get_parameters
 from tinyops.helper.helpers import concat_weights, load
 from tinyops.helper.llama import Transformer, convert_from_huggingface, fix_bf16
 from tinyops.helper.params import MODEL_PARAMS
-from tinygrad.helpers import getenv
+from tinygrad.helpers import getenv,Timing, Profiling,DEBUG
 
 MAX_CONTEXT = getenv("MAX_CONTEXT", 4096)
 # TODO add other models like mistral and gemma
 class LLaMa:
+    def __init__(self, model, tokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+    
     @staticmethod
     def build(model_path, tokenizer_path, model_gen="1", model_size="7B", quantize=None, device=None):
         params = MODEL_PARAMS[model_gen][model_size]
@@ -66,9 +70,9 @@ class LLaMa:
 
         return LLaMa(model, tokenizer)
 
-    def __init__(self, model, tokenizer):
-        self.model = model
-        self.tokenizer = tokenizer
+    @staticmethod
+    def param_bytes(llama):
+        return sum(x.lazydata.size * x.dtype.itemsize for x in get_parameters(llama.model))
 
     def greedy_until(self, prompt: str, until, max_length, temperature):
         toks = [self.tokenizer.bos_id()] + self.tokenizer.encode(prompt)
@@ -92,3 +96,21 @@ class LLaMa:
                 if output.endswith(s): 
                     return output[0:-len(s)]
         return output
+    
+    @staticmethod
+    def generate(llama,max_tokens,prompt,temperature,device):
+        import sys
+        outputted = prompt
+        start_pos, toks = 0, [llama.tokenizer.bos_id()] + llama.tokenizer.encode(outputted)
+
+        for _ in range(max_tokens):
+            tok_tensor = llama.model(Tensor([toks[start_pos:]], device=device), start_pos, temperature)
+            tok = tok_tensor.item()
+            start_pos = len(toks)
+            toks.append(tok)
+            cur = llama.tokenizer.decode(toks)
+            sys.stdout.write(cur[len(outputted):])
+            sys.stdout.flush()
+            outputted = cur
+
+        return outputted
