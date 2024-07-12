@@ -1,13 +1,13 @@
 from pathlib import Path
+import functools
 from typing import List
-import json
 import numpy as np
-from tinygrad import Context, Tensor, nn,GlobalCounters
-from tinygrad.nn.state import load_state_dict,get_parameters
+from tinygrad import Context, Tensor, nn,GlobalCounters,Device,Variable
+from tinygrad.nn.state import get_state_dict, load_state_dict,get_parameters,torch_load
 from tinyops.helper.helpers import concat_weights, load
-from tinyops.helper.llama import Transformer, convert_from_huggingface, fix_bf16
+from tinyops.helper.llama import FeedForward,Transformer, convert_from_huggingface, fix_bf16
 from tinyops.helper.params import MODEL_PARAMS
-from tinygrad.helpers import getenv,Timing, Profiling,DEBUG
+from tinygrad.helpers import getenv,Timing, Profiling,DEBUG,CI,tqdm
 
 MAX_CONTEXT = getenv("MAX_CONTEXT", 4096)
 # TODO add other models like mistral and gemma
@@ -29,6 +29,9 @@ class LLaMa:
         elif quantize == "nf4":
             from tinyops.helper.quantization import NF4Linear as linear
             linear = linear(64)
+        elif quantize=="nf2":
+            from tinyops.helper.quantization import NF2Linear as linear
+            linear = linear(16)
         else:
             linear = nn.Linear
 
@@ -108,9 +111,57 @@ class LLaMa:
             tok = tok_tensor.item()
             start_pos = len(toks)
             toks.append(tok)
+            print(toks)
             cur = llama.tokenizer.decode(toks)
             sys.stdout.write(cur[len(outputted):])
             sys.stdout.flush()
             outputted = cur
 
         return outputted
+
+
+class mixtral:
+    def __init__(self, num_experts:int, dim:int, hidden_dim:int, linear=nn.Linear):
+        self.gate = nn.Linear(dim, num_experts, bias=False)
+        self.experts = [FeedForward(dim, hidden_dim, linear) for _ in range(num_experts)]
+    def __call__(self, x:Tensor) -> Tensor:
+        assert x.shape[0] == 1, "only BS=1"
+        g = self.gate(x).float().exp()
+        choice = g.data().tolist()[0][0]
+        top = sorted(enumerate(choice), key=lambda x: -x[1])
+        norm = top[0][1] + top[1][1]
+        e1, e2 = self.experts[top[0][0]], self.experts[top[1][0]]
+        scale = Tensor([top[0][1]/norm, top[1][1]/norm])
+        ret = e1(x.to(e1.w1.weight.device)).to(x.device) * scale[0] + \
+            e2(x.to(e2.w1.weight.device)).to(x.device) * scale[1]
+        return ret
+    
+    @staticmethod
+    def build(weight_path):
+        state = torch_load(weight_path + "/consolidated.00.pth.b")
+        model = Transformer(n_layers=32, dim=4096, hidden_dim=14336, n_heads=32, n_kv_heads=8, norm_eps=1e-5, vocab_size=32000, feed_forward=functools.partial(mixtral, 8), jit=False)
+        model_state_dict = get_state_dict(model)
+        
+        for k in (t := tqdm(state, disable=CI)):
+            if 'feed_forward.experts.' in k:
+                expert_no = int(k.split('feed_forward.experts.')[1].split('.')[0])
+                device = Device.DEFAULT + ":" + str((expert_no//2)+1)
+            else:
+                device = Device.DEFAULT
+        t.set_description(f"ram used: {GlobalCounters.mem_used/1e9:5.2f} GB, loading {k} to {device}")
+        model_state_dict[k].replace(state[k].to(device).half()).realize()
+        if CI: print(f"ram used: {GlobalCounters.mem_used/1e9:5.2f} GB")
+        return model
+    
+    @staticmethod
+    def generate(model,tokenzier_path,max_tokens,prompt,temperature,device):
+        from sentencepiece import SentencePieceProcessor
+        spp = SentencePieceProcessor(tokenzier_path)
+        toks = [spp.bos_id()]
+        start_pos = 0
+        for _ in range(max_tokens):
+            tok = model(Tensor([toks[start_pos:]]), 0 if start_pos == 0 else Variable("start_pos", 1, 1024).bind(start_pos), temperature).item()
+            toks.append(tok)
+            tart_pos += 1
+            print(spp.decode(toks))
+

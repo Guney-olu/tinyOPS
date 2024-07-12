@@ -1,7 +1,7 @@
 from tinygrad import Tensor, dtypes, nn, Context, Device, GlobalCounters
 
 
-# TODO Add 2bit and 3 bit 
+# TODO Add 2bit 
 class Int8Linear:
   def __init__(self, in_features, out_features, bias=False):
     assert bias == False
@@ -42,6 +42,7 @@ def NF4Linear(block_size):
       self.scale = Tensor.empty(int(out_features * in_features / block_size), 1, dtype=dtypes.float16)
 
     def __call__(self, x: Tensor) -> Tensor:
+      print("here")
       high_bits = self.weight
       low_bits = (self.weight * 2 ** 4).contiguous()
       unpacked = Tensor.stack(high_bits, low_bits, dim=-1).div(2 ** 4, upcast=False)
@@ -65,3 +66,43 @@ def NF4Linear(block_size):
           new_state_dict[k] = v
       return new_state_dict
   return _NF4Linear
+
+#TODO making 2 bit quantization work 
+def NF2Linear(block_size):
+  _CODE = [
+    -1.0, -0.3333333333333333, 0.3333333333333333, 1.0,
+  ]
+  CODE = Tensor.stack(*[Tensor(c, dtype=dtypes.float16) for c in _CODE])
+
+  class _NF2Linear:
+    def __init__(self, in_features, out_features, bias=False):
+      assert not bias, "bias not supported"
+      self.in_features, self.out_features = in_features, out_features
+      self.weight = Tensor.empty(int(out_features * in_features / 4), dtype=dtypes.uint8)
+      self.scale = Tensor.empty(int(out_features * in_features / block_size), 1, dtype=dtypes.float16)
+
+    def __call__(self, x: Tensor) -> Tensor:
+      high_bits = self.weight
+      low_bits = (self.weight * 2 ** 2).contiguous()
+      unpacked = Tensor.stack(high_bits, low_bits, dim=-1).div(2 ** 2, upcast=False)
+      unscaled = CODE[unpacked].to(x.device).reshape(-1, block_size) * self.scale
+      return x.linear(unscaled.reshape(self.out_features, self.in_features).T)
+
+    @staticmethod
+    def quantize(state_dict: dict[str, Tensor], device) -> dict[str, Tensor]:
+      new_state_dict = {}
+      for k, v in state_dict.items():
+        if "feed_forward" in k or "attention.w" in k:
+          grouped = v.reshape(-1, block_size)
+          scale = (grouped.abs().max(axis=1, keepdim=True))
+          coded = ((grouped / scale).unsqueeze(-1) - CODE.to(v.device)).abs().argmin(axis=-1).cast(dtypes.uint8).flatten()
+          new_state_dict[k] = coded[::2] * 2 ** 2 + coded[1::2]
+          new_state_dict[k.replace(".weight", ".scale")] = scale.cast(dtypes.float16)
+          if isinstance(device, tuple):
+            new_state_dict[k].shard_(device, axis=-1)
+            new_state_dict[k.replace('weight', 'scale')].shard_(device, axis=None)
+        else:
+          new_state_dict[k] = v
+      return new_state_dict
+
+  return _NF2Linear
