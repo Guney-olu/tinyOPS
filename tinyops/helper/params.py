@@ -43,9 +43,6 @@ class TikToken:
   def eos_id(self): return self.special_tokens["<|end_of_text|>"]
   def vocab_size(self): return self.model.n_vocab
 
-
-
-
 #LLama Model support
 #TODO  ADD Mistral and Gemma
 MODEL_PARAMS = {
@@ -101,5 +98,12 @@ MODEL_PARAMS = {
       "files": 8,
     },
     "tokenizer": TikToken,
+  },
+  "gemma": {
+    "2B": {
+      "args": {"dim": 2048, "n_heads": 8,"n_kv_heads": 1,"n_layers": 18, "norm_eps": 1e-05, "vocab_size": 256000, "hidden_dim": 16384},
+      "files": 1,
+    },
+    "tokenizer": SentencePieceProcessor,
   }
 }

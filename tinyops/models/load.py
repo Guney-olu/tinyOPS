@@ -111,15 +111,95 @@ class LLaMa:
             tok = tok_tensor.item()
             start_pos = len(toks)
             toks.append(tok)
-            print(toks)
             cur = llama.tokenizer.decode(toks)
             sys.stdout.write(cur[len(outputted):])
             sys.stdout.flush()
             outputted = cur
 
         return outputted
+    
+#GEMMA CLASS
+class Gemma:
+    def __init__(self, model, tokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+    
+    @staticmethod
+    def build(model_path, tokenizer_path, model_gen="1", model_size="7B", quantize=None, device=None):
+        params = MODEL_PARAMS[model_gen][model_size]
+        tokenizer = MODEL_PARAMS[model_gen]['tokenizer'](model_file=str(tokenizer_path))
+        assert tokenizer.vocab_size() == params["args"]["vocab_size"], f"{tokenizer.vocab_size()=} not equal to {params['args']['vocab_size']}"
 
+        jit = bool(getenv("JIT", 1))
 
+        if quantize == "int8":
+            from tinyops.helper.quantization import Int8Linear as linear
+        elif quantize == "nf4":
+            from tinyops.helper.quantization import NF4Linear as linear
+            linear = linear(64)
+        elif quantize=="nf2":
+            from tinyops.helper.quantization import NF2Linear as linear
+            linear = linear(16)
+        else:
+            linear = nn.Linear
+
+        model = Transformer(**params["args"], linear=linear, max_context=MAX_CONTEXT, jit=jit)
+
+        if model_path.is_dir():
+            if (model_path / "model.safetensors.index.json").exists():
+                weights = load(str(model_path / "model.safetensors.index.json"))
+            elif (model_path / "model.safetensors").exists():
+                weights = load(str(model_path / "model.safetensors"))
+            else:
+                weights = concat_weights([load(str(model_path / f"consolidated.{i:02d}.pth")) for i in range(MODEL_PARAMS[model_size]["files"])], device[0] if isinstance(device, tuple) else device)
+        else:
+            weights = load(str(model_path))
+        
+        if "model.embed_tokens.weight" in weights:
+            weights = convert_from_huggingface(weights, model, params["args"]["n_heads"], params["args"]["n_kv_heads"]) #TODO no hardcoding
+        
+        weights = fix_bf16(weights)
+
+        with Context(BEAM=0):
+            if quantize is not None:
+                weights = linear.quantize(weights, device)
+                for _, v in weights.items(): 
+                    v.realize()
+
+            if isinstance(device, tuple):
+                for k, v in nn.state.get_state_dict(model).items():
+                    if 'scale' in k: v.shard_(device, axis=None)
+                    elif '.attention.' in k: v.shard_(device, axis=-1)
+                    elif '.feed_forward.w1.' in k: v.shard_(device, axis=0)
+                    elif '.feed_forward.w3.' in k: v.shard_(device, axis=0)
+                    elif '.feed_forward.' in k: v.shard_(device, axis=-1)
+                    elif 'tok_embeddings.weight' in k: v.shard_(device, axis=0)
+                    elif 'output.weight' in k: v.shard_(device, axis=-1)
+                    else: v.shard_(device, axis=None)
+
+            load_state_dict(model, weights, strict=False, consume=True)
+
+        return Gemma(model, tokenizer)
+    @staticmethod
+    def generate(gemma,max_tokens,prompt,temperature,device):
+        import sys
+        outputted = prompt
+        start_pos, toks = 0, [gemma.tokenizer.bos_id()] + gemma.tokenizer.encode(outputted)
+
+        for _ in range(max_tokens):
+            tok_tensor = gemma.model(Tensor([toks[start_pos:]], device=device), start_pos, temperature)
+            tok = tok_tensor.item()
+            start_pos = len(toks)
+            toks.append(tok)
+            cur = gemma.tokenizer.decode(toks)
+            sys.stdout.write(cur[len(outputted):])
+            sys.stdout.flush()
+            outputted = cur
+
+        return outputted
+
+# MIXTRAL CLASS
+#TODO Testing
 class mixtral:
     def __init__(self, num_experts:int, dim:int, hidden_dim:int, linear=nn.Linear):
         self.gate = nn.Linear(dim, num_experts, bias=False)
