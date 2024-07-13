@@ -180,6 +180,53 @@ class Gemma:
             load_state_dict(model, weights, strict=False, consume=True)
 
         return Gemma(model, tokenizer)
+    
+    #TODO Make it work not working with metal api
+    @staticmethod
+    def generate(gemma, max_tokens, prompt, temperature, device):
+        import sys
+        import time
+
+        outputted = prompt
+        start_pos = 0
+        toks = [gemma.tokenizer.bos_id()] + gemma.tokenizer.encode(outputted)
+
+        start_time = time.time()
+
+        for _ in range(max_tokens):
+            try:
+                start_pos_var = 0 if start_pos == 0 else Variable("start_pos", 1, 1024).bind(start_pos)
+                start_pos_val = start_pos_var.val if isinstance(start_pos_var, Variable) else start_pos_var
+                print(f"start_pos: {start_pos}, start_pos_val: {start_pos_val}")
+                tok_tensor = gemma.model(Tensor([toks[start_pos:]], device=device), start_pos_val, temperature)
+                print(f"Before realization: tok_tensor={tok_tensor}")
+                try:
+                    tok_tensor.realize()
+                except Exception as e:
+                    print(f"Error during realization: {e}")
+                    raise
+                print(f"After realization: tok_tensor={tok_tensor}")
+                tok = tok_tensor.item()
+                toks.append(tok)
+                start_pos = len(toks)
+                cur = gemma.tokenizer.decode(toks)
+                sys.stdout.write(cur[len(outputted):])
+                sys.stdout.flush()
+                outputted = cur
+                print(f"Current output: {outputted}")
+
+            except Exception as e:
+                print(f"Error during token generation: {e}")
+                break
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        tokens_per_sec = max_tokens / total_time
+
+        print(f"Generated {max_tokens} tokens in {total_time:.2f} seconds ({tokens_per_sec:.2f} tokens/sec)")
+
+        return outputted
+
     @staticmethod
     def Benchmark(gemma, max_tokens, temperature, device):
         toks = [gemma.tokenizer.bos_id()]
@@ -191,7 +238,6 @@ class Gemma:
                 start_pos_val = start_pos_var.val 
             else:
                 start_pos_val = start_pos_var
-
             tok_tensor = gemma.model(Tensor([toks[start_pos:]], device=device), start_pos_val, temperature)
             tok_tensor.realize()
             tok = tok_tensor.item()

@@ -2,8 +2,8 @@
 
 ## Features
 
-### LLaMA Inference 
-Easy llama inference with quantization using tinyops
+### LLM Inference 
+Easy LLM inference with quantization using tinyops using tinygrad as backened
 
 ```py
 from tinyops import LLaMa,Gemma
@@ -23,8 +23,18 @@ print(output)
 #Gemma Support
 gemm = Gemma.build(model_path, tokenizer_path, model_gen="gemma", model_size="2B",device=device)
 output = Gemma.Benchmark(gemm,10,0.7,device)
-
+#output = Gemma.generate(gemm,5,"I am batman",0.7,device)
 ```
+
+### Model Support
+
+| Model   | Completion | 8bit | 4bit | 2bit |
+|---------|------------|------|------|------|
+| llama-2 | ✅         | ✅   |  ✅   | -    |
+| llama-3 | ✅         | ✅   |  ✅   | -    |
+| gemma   | ✅         | -    |  -   | -    |
+| mixtral | ✅         | -    |  -   | -    |
+
 ### AutoCNN 
 
 ```sh
