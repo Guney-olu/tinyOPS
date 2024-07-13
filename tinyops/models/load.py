@@ -1,5 +1,6 @@
 from pathlib import Path
 import functools
+import time
 from typing import List
 import numpy as np
 from tinygrad import Context, Tensor, nn,GlobalCounters,Device,Variable
@@ -8,6 +9,7 @@ from tinyops.helper.helpers import concat_weights, load
 from tinyops.helper.llama import FeedForward,Transformer, convert_from_huggingface, fix_bf16
 from tinyops.helper.params import MODEL_PARAMS
 from tinygrad.helpers import getenv,Timing, Profiling,DEBUG,CI,tqdm
+
 
 MAX_CONTEXT = getenv("MAX_CONTEXT", 4096)
 # TODO add other models like mistral and gemma
@@ -119,19 +121,18 @@ class LLaMa:
         return outputted
     
 #GEMMA CLASS
+#TODO add generation function 
 class Gemma:
     def __init__(self, model, tokenizer):
         self.model = model
         self.tokenizer = tokenizer
     
     @staticmethod
-    def build(model_path, tokenizer_path, model_gen="1", model_size="7B", quantize=None, device=None):
+    def build(model_path, tokenizer_path, model_gen="gemma", model_size="2B", quantize=None, device=None):
         params = MODEL_PARAMS[model_gen][model_size]
         tokenizer = MODEL_PARAMS[model_gen]['tokenizer'](model_file=str(tokenizer_path))
         assert tokenizer.vocab_size() == params["args"]["vocab_size"], f"{tokenizer.vocab_size()=} not equal to {params['args']['vocab_size']}"
-
         jit = bool(getenv("JIT", 1))
-
         if quantize == "int8":
             from tinyops.helper.quantization import Int8Linear as linear
         elif quantize == "nf4":
@@ -159,7 +160,6 @@ class Gemma:
             weights = convert_from_huggingface(weights, model, params["args"]["n_heads"], params["args"]["n_kv_heads"]) #TODO no hardcoding
         
         weights = fix_bf16(weights)
-
         with Context(BEAM=0):
             if quantize is not None:
                 weights = linear.quantize(weights, device)
@@ -181,22 +181,36 @@ class Gemma:
 
         return Gemma(model, tokenizer)
     @staticmethod
-    def generate(gemma,max_tokens,prompt,temperature,device):
-        import sys
-        outputted = prompt
-        start_pos, toks = 0, [gemma.tokenizer.bos_id()] + gemma.tokenizer.encode(outputted)
+    def Benchmark(gemma, max_tokens, temperature, device):
+        toks = [gemma.tokenizer.bos_id()]
+        start_pos = 0
+        start_time = time.time()
+        for i in range(max_tokens):
+            start_pos_var = 0 if start_pos == 0 else Variable("start_pos", 1, 1024).bind(start_pos)
+            if isinstance(start_pos_var, Variable):
+                start_pos_val = start_pos_var.val 
+            else:
+                start_pos_val = start_pos_var
 
-        for _ in range(max_tokens):
-            tok_tensor = gemma.model(Tensor([toks[start_pos:]], device=device), start_pos, temperature)
+            tok_tensor = gemma.model(Tensor([toks[start_pos:]], device=device), start_pos_val, temperature)
+            tok_tensor.realize()
             tok = tok_tensor.item()
-            start_pos = len(toks)
-            toks.append(tok)
-            cur = gemma.tokenizer.decode(toks)
-            sys.stdout.write(cur[len(outputted):])
-            sys.stdout.flush()
-            outputted = cur
 
-        return outputted
+            toks.append(tok)
+            start_pos += 1
+            decoded_output = gemma.tokenizer.decode(toks)
+            print(decoded_output)
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+            tokens_per_sec = (i + 1) / elapsed_time
+            print(f"Token {i + 1}/{max_tokens}: {decoded_output[-len(gemma.tokenizer.decode([tok])):]}")
+            print(f"Time elapsed: {elapsed_time:.2f} seconds, Tokens/sec: {tokens_per_sec:.2f}")
+
+        total_time = time.time() - start_time
+        print(f"Generated {max_tokens} tokens in {total_time:.2f} seconds ({tokens_per_sec:.2f} tokens/sec)")
+
+        return gemma.tokenizer.decode(toks)
+
 
 # MIXTRAL CLASS
 #TODO Testing

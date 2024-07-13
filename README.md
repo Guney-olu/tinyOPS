@@ -1,18 +1,12 @@
 # MLOPS using tinygrad
 
 ## Features
-### AutoCNN 
-
-```sh
-python3 examples/TinyAutoML_CNN.py -e 1 dataset/train dataset/test
-```
 
 ### LLaMA Inference 
-
 Easy llama inference with quantization using tinyops
 
 ```py
-from tinyops import LLaMa
+from tinyops import LLaMa,Gemma
 from tinygrad import Device
 from pathlib import Path
 
@@ -25,6 +19,17 @@ device = tuple(f"{Device.DEFAULT}:{i}" for i in range(shard)) if shard > 1 else 
 llama = LLaMa.build(model_path, tokenizer_path, model_gen="1", model_size="7B", quantize="nf4", device=device)
 output = LLaMa.generate(llama,5,"I am batman",0.7,device)
 print(output)
+
+#Gemma Support
+gemm = Gemma.build(model_path, tokenizer_path, model_gen="gemma", model_size="2B",device=device)
+output = Gemma.Benchmark(gemm,10,0.7,device)
+
 ```
+### AutoCNN 
+
+```sh
+python3 examples/TinyAutoML_CNN.py -e 1 dataset/train dataset/test
+```
+
 
 
