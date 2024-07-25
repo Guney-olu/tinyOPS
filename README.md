@@ -26,6 +26,8 @@ output = Gemma.Benchmark(gemm,10,0.7,device)
 #output = Gemma.generate(gemm,5,"I am batman",0.7,device)
 ```
 
+**GGUF Support coming soon . . . check https://github.com/Guney-olu/decode-gguf**
+
 ### Model Support
 
 | Model   | Completion | 8bit | 4bit | 2bit |
