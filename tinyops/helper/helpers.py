@@ -326,7 +326,7 @@ GGML_DEQUANTIZE = {
 }
 
 
-# GGUF way of stroring files
+# GGUF way of stroring weights 
 def translate_name(name):
     if name == "output.weight":
         return "lm_head.weight"
