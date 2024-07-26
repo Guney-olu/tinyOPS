@@ -9,7 +9,7 @@ from tinyops.helper.helpers import concat_weights, load
 from tinyops.helper.llama import FeedForward,Transformer, convert_from_huggingface, fix_bf16
 from tinyops.helper.params import MODEL_PARAMS
 from tinygrad.helpers import getenv,Timing, Profiling,DEBUG,CI,tqdm
-
+from tinyops.helper.gguf_parser import load_gguf,load_gguf_tensor,translate_name
 
 MAX_CONTEXT = getenv("MAX_CONTEXT", 4096)
 # TODO add other models like mistral and gemma
@@ -304,4 +304,49 @@ class mixtral:
             toks.append(tok)
             tart_pos += 1
             print(spp.decode(toks))
+
+#LOADING GGUF MODELS  
+#TODO add shards and bechmark
+class GGUF_load:
+    def __init__(self, model, tokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+    
+    @staticmethod
+    def build(model_path, tokenizer_path, model_gen="tinyllama-gguf", model_size="1B", device=None):
+        params = MODEL_PARAMS[model_gen][model_size]
+        tokenizer = MODEL_PARAMS[model_gen]['tokenizer'](model_file=str(tokenizer_path))
+        assert tokenizer.vocab_size() == params["args"]["vocab_size"], f"{tokenizer.vocab_size()=} not equal to {params['args']['vocab_size']}"
+
+        jit = bool(getenv("JIT", 1))
+        
+        linear = nn.Linear
+
+        model = Transformer(**params["args"], linear=linear, max_context=MAX_CONTEXT, jit=jit)
+
+        if model_path.is_dir():
+            print(model_path)
+            with open(model_path,"rb") as f:
+                info , tensor = load_gguf(f)
+                print(info,tensor)
+                tens_dict = {}
+                for name in tensor:
+                    weights = load_gguf_tensor(f,tensor,name)
+                    shape = tensor[name]["shape"]
+                    if ".attn_k." in name or ".attn_q." in name:
+                        num_heads = info["llama.attention.head_count"]
+                        tmp_shape = (shape[-1] // num_heads // 2, num_heads, 2, shape[0])
+                        weights = weights.reshape(tmp_shape)
+                        weights = weights.transpose(0, 2, 1, 3)
+                        weights = weights.reshape(shape[::-1])
+                    
+                    t_tensor_view = translate_name(name)
+                    tens_dict[t_tensor_view] = Tensor(weights.astype(np.float16))
+                    
+            if "model.embed_tokens.weight" in tens_dict:
+                weights = convert_from_huggingface(tens_dict, model, params["args"]["n_heads"], params["args"]["n_kv_heads"])
+        
+            load_state_dict(model, weights, strict=False, consume=True)
+
+        return GGUF_load(model, tokenizer)
 

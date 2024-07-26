@@ -326,27 +326,3 @@ GGML_DEQUANTIZE = {
 }
 
 
-# GGUF way of stroring weights 
-def translate_name(name):
-    if name == "output.weight":
-        return "lm_head.weight"
-
-    if name == "token_embd.weight":
-        return "model.embed_tokens.weight"
-
-    if name == "output_norm.weight":
-        return "model.norm.weight"
-
-    name = name.replace("blk.", "model.layers.")
-    name = name.replace(".attn_norm.weight", ".input_layernorm.weight")
-    name = name.replace(".ffn_down.weight", ".mlp.down_proj.weight")
-    name = name.replace(".ffn_gate.weight", ".mlp.gate_proj.weight")
-    name = name.replace(".ffn_up.weight", ".mlp.up_proj.weight")
-    name = name.replace(".ffn_norm.weight", ".post_attention_layernorm.weight")
-    name = name.replace(".attn_q.weight", ".self_attn.q_proj.weight")
-    name = name.replace(".attn_k.weight", ".self_attn.k_proj.weight")
-    name = name.replace(".attn_v.weight", ".self_attn.v_proj.weight")
-    name = name.replace(".attn_output.weight", ".self_attn.o_proj.weight")
-
-    return name
-

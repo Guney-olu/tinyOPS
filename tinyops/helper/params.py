@@ -105,5 +105,14 @@ MODEL_PARAMS = {
       "files": 1,
     },
     "tokenizer": SentencePieceProcessor,
+  },
+  # https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+  # TODO add more gguf model or write custom parser to get them 
+  "tinyllama-gguf": {
+    "1B": {
+      "args": {'dim': 2048, 'n_heads': 32, 'n_kv_heads': 4, 'n_layers': 22, 'norm_eps': 1e-05, 'vocab_size': 32000, 'hidden_dim': 5632},
+      "files": 1,
+    },
+    "tokenizer": SentencePieceProcessor,
   }
 }

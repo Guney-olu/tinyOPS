@@ -26,7 +26,21 @@ output = Gemma.Benchmark(gemm,10,0.7,device)
 #output = Gemma.generate(gemm,5,"I am batman",0.7,device)
 ```
 
-**GGUF Support coming soon . . . check https://github.com/Guney-olu/decode-gguf**
+### Now load gguf models
+**NOTE It dequantize the model and load it**
+
+```py
+from tinyops import GGUF_load
+from tinygrad import Device
+from pathlib import Path
+
+model_path = Path("Path to model")
+tokenizer_path = Path("Path to tokenzier.model file")
+shard = 1
+device = tuple(f"{Device.DEFAULT}:{i}" for i in range(shard)) if shard > 1 else Device.DEFAULT
+
+load_gguf  = GGUF_load.build(model_path,tokenizer_path,device=device)
+```
 
 ### Model Support
 
