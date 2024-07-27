@@ -40,6 +40,7 @@ shard = 1
 device = tuple(f"{Device.DEFAULT}:{i}" for i in range(shard)) if shard > 1 else Device.DEFAULT
 
 load_gguf  = GGUF_load.build(model_path,tokenizer_path,device=device)
+load_gguf.Benchmark(load_gguf,10,0.1,device)
 ```
 
 ### Model Support
